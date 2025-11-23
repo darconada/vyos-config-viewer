@@ -83,9 +83,6 @@ You have two options to load data:
 - **`static/style.css`**: Custom CSS system with variables for theming and responsive grid layouts.
 - **Chart.js**: Powers the interactive dashboard charts.
 
-## 🐛 Known Issues
-- **Dashboard Charts**: The Firewall and NAT statistics charts may currently appear empty or not display data correctly after loading a configuration. This is a known bug under investigation.
-
 ## 🤝 Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
