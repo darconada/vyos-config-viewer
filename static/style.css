@@ -1,0 +1,461 @@
+/* static/style.css */
+
+/* =========================================
+   1. DESIGN SYSTEM & VARIABLES
+   ========================================= */
+:root {
+    /* --- Light Theme (Default) --- */
+    --bg-body: #f5f7fa;
+    --bg-card: #ffffff;
+    --bg-header: #ffffff;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --border-color: #e5e7eb;
+    --accent-color: #3b82f6;
+    /* Blue */
+    --accent-hover: #2563eb;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --header-height: 64px;
+}
+
+[data-theme="dark"] {
+    /* --- Dark Theme --- */
+    --bg-body: #111827;
+    --bg-card: #1f2937;
+    --bg-header: #1f2937;
+    --text-primary: #f9fafb;
+    --text-secondary: #9ca3af;
+    --border-color: #374151;
+    --accent-color: #60a5fa;
+    --accent-hover: #3b82f6;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="retro"] {
+    /* --- Retro / Cyberpunk Theme --- */
+    --bg-body: #0d0d0d;
+    --bg-card: #000000;
+    --bg-header: #000000;
+    --text-primary: #00ff41;
+    /* Phosphor Green */
+    --text-secondary: #008f11;
+    --border-color: #00ff41;
+    --accent-color: #00ff41;
+    --accent-hover: #00cc33;
+    --success-color: #00ff41;
+    --danger-color: #ff0055;
+    --warning-color: #ffcc00;
+    --font-main: 'VT323', 'Courier New', monospace;
+    /* Force mono */
+    --font-mono: 'VT323', 'Courier New', monospace;
+    --radius-md: 0;
+    --radius-lg: 0;
+    --shadow-sm: none;
+    --shadow-md: 0 0 10px rgba(0, 255, 65, 0.2);
+}
+
+/* =========================================
+   2. GLOBAL RESET & BASE STYLES
+   ========================================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    line-height: 1.5;
+    transition: background-color 0.3s, color 0.3s;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+a {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* =========================================
+   3. LAYOUT & NAVIGATION
+   ========================================= */
+.app-header {
+    height: var(--header-height);
+    background-color: var(--bg-header);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: var(--shadow-sm);
+}
+
+.logo {
+    font-weight: 700;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.main-container {
+    flex: 1;
+    width: 100%;
+    max-width: 98%;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* =========================================
+   4. COMPONENTS
+   ========================================= */
+
+/* --- Buttons --- */
+button,
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+}
+
+button:hover,
+.btn:hover {
+    background-color: var(--bg-body);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+button.primary {
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+button.primary:hover {
+    background-color: var(--accent-hover);
+}
+
+/* Retro specific button tweak */
+[data-theme="retro"] button {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-width: 2px;
+}
+
+[data-theme="retro"] button:hover {
+    box-shadow: 0 0 8px var(--accent-color);
+    text-shadow: 0 0 5px var(--accent-color);
+}
+
+/* --- Inputs --- */
+input[type="text"],
+input[type="password"],
+input[type="file"],
+select {
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input:focus,
+select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.filter-input {
+    width: 100%;
+    min-width: 80px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+/* --- Cards --- */
+.card {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* --- Tables --- */
+.table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    table-layout: fixed;
+    /* Re-enabled to enforce widths */
+}
+
+th,
+td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+th {
+    background-color: var(--bg-body);
+    font-weight: 600;
+    color: var(--text-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    /* Prevent header text wrapping */
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="dark"] tr:hover td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Highlighted row */
+tr.highlight td {
+    background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+[data-theme="retro"] tr.highlight td {
+    background-color: rgba(0, 255, 65, 0.2) !important;
+    box-shadow: inset 0 0 10px var(--accent-color);
+}
+
+/* --- Column Widths --- */
+.col-rule_id {
+    width: 80px;
+}
+
+.col-protocol {
+    width: 80px;
+    min-width: 100px;
+}
+
+.col-action {
+    width: 100px;
+}
+
+.col-src_port {
+    width: 10%;
+    word-break: break-all;
+    /* Force wrap for long lists like 80,443,8080... */
+}
+
+.col-dst_port {
+    width: 12.5%;
+    /* 1/8 of total width */
+    word-break: break-all;
+}
+
+.col-source,
+.col-destination {
+    width: 15%;
+}
+
+.col-description {
+    width: auto;
+}
+
+/* Takes remaining space */
+
+/* --- Badges / Chips --- */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background-color: var(--bg-body);
+    border: 1px solid var(--border-color);
+}
+
+/* --- Modals --- */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    background-color: var(--bg-card);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    max-width: 500px;
+    width: 90%;
+    border: 1px solid var(--border-color);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* --- Retro Specific Effects --- */
+[data-theme="retro"] body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+    z-index: 999;
+}
+
+[data-theme="retro"] * {
+    text-shadow: 0 0 2px rgba(0, 255, 65, 0.5);
+}
+
+/* =========================================
+   5. UTILITIES
+   ========================================= */
+.hidden {
+    display: none !important;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.gap-1 {
+    gap: 0.25rem;
+}
+
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.mt-4 {
+    margin-top: 1rem;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+}
+
+.text-muted {
+    color: var(--text-secondary);
+}
+
+/* Filter active indicator */
+/* Filter active indicator */
+.filter-active {
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+/* --- Dashboard Charts --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.chart-container {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    height: 400px;
+    position: relative;
+}
+
+.chart-container h3 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    text-align: center;
+}

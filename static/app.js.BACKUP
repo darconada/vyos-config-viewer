@@ -1,0 +1,461 @@
+// static/app.js
+// VyOS Config Viewer JavaScript
+
+console.log('VyOS Config Viewer JS loaded');
+
+const uploadBtn = document.getElementById('uploadBtn');
+const fileInput = document.getElementById('fileInput');
+const menu      = document.getElementById('menu');
+const content   = document.getElementById('content');
+
+let sections           = ['Firewall','NAT','System','Policy','Protocols','Service'];
+let currentRulesetName = null;
+let currentRulesetData = {};
+let groupCache         = {};
+let showResolved       = false;
+let filters            = {};                          // filtros de texto
+let ipFilters          = { source: null, destination: null }; // filtros IP/CIDR
+
+// ========= CARGA DE FICHERO =========
+uploadBtn.onclick = async () => {
+  try {
+    const file = fileInput.files[0];
+    if (!file) return alert('Selecciona un fichero');
+    const fd = new FormData(); fd.append('file', file);
+    const res = await fetch('/upload', { method:'POST', body:fd });
+    const j   = await res.json();
+    if (j.status !== 'ok') return alert(j.message);
+    drawMenu();
+  } catch(e) { console.error(e); }
+};
+
+// ========= MENÚ DE SECCIONES =========
+function drawMenu(){
+  menu.innerHTML = sections
+    .map(s => `<button onclick="loadSection('${s}')">${s}</button>`)
+    .join(' ');
+}
+
+// ========= CARGA DE SECCIÓN =========
+async function loadSection(sec){
+  content.innerHTML = '<p>Cargando…</p>';
+  if (sec === 'Firewall') return loadFirewall();
+  const res  = await fetch(`/api/${sec}`);
+  const data = await res.json();
+  content.innerHTML = `<pre>${JSON.stringify(data,null,2)}</pre>`;
+}
+
+// ========= LISTA DE RULE‑SETS =========
+async function loadFirewall(){
+  const res  = await fetch('/api/firewall/rulesets');
+  const sets = await res.json();
+  content.innerHTML = sets
+    .map(rs => `<button onclick="viewRuleset('${rs}')">${rs}</button>`)
+    .join(' ');
+}
+
+// ========= VER RULE‑SET =========
+async function viewRuleset(rs){
+  const res = await fetch(`/api/firewall/ruleset/${rs}`);
+  const js  = await res.json();
+
+  currentRulesetName = rs;
+  currentRulesetData = js.rule || {};
+
+  // --- precargar grupos ---
+  const refs = new Set();
+  Object.values(currentRulesetData).forEach(r=>{
+    ['source','destination'].forEach(side=>{
+      const g = r[side]?.group;
+      if (!g) return;
+      //if (g['address-group']) refs.add(`address|${g['address-group']}`);
+      //if (g['network-group']) refs.add(`network|${g['network-group']}`);
+      //if (g['port-group'])    refs.add(`port|${g['port-group']}`);
+      if (g['address-group']) refs.add(`address|${g['address-group']}`);
+      if (g['network-group']) refs.add(`network|${g['network-group']}`);
+      if (g['port-group'])    refs.add(`port|${g['port-group']}`);
+    });
+  });
+  groupCache = {};
+  await Promise.all([...refs].map(async ref=>{
+    const [type,name] = ref.split('|');
+    const key = `${type}-${name}`;
+    const r   = await fetch(`/api/firewall/group/${type}/${name}`);
+    const obj = await r.json();
+    groupCache[key] = obj.address || obj.network || obj.port;
+  }));
+
+  // limpiar filtros
+  filters   = {};
+  ipFilters = { source:null, destination:null };
+  showResolved = false;
+
+  renderRuleset();
+}
+
+// ========= RENDER DE TABLA =========
+function renderRuleset(){
+  let html = `
+    <h2>${currentRulesetName}</h2>
+    <button id="toggleBtn">${showResolved?'Mostrar grupos':'Mostrar valores'}</button>
+    <button id="searchBtn">Buscar tráfico</button>
+    <div id="searchResult" style="margin:8px 0;color:blue;"></div>
+
+    <table border="1" cellpadding="4" cellspacing="0">
+      <thead><tr>
+  `;
+  const cols = [
+    {id:'rule_id',     label:'rule_id'},
+    {id:'source',      label:'source'},
+    {id:'src_port',    label:'source port'},
+    {id:'destination', label:'destination'},
+    {id:'dst_port',    label:'destination port'},
+    {id:'protocol',    label:'protocol'},
+    {id:'action',      label:'action'},
+    {id:'description', label:'description'}
+  ];
+
+  cols.forEach(c=>{
+    const isIP  = (c.id==='source'||c.id==='destination');
+    const active = isIP ? ipFilters[c.id]!==null : filters[c.id];
+    const bg     = active ? 'background:#fffae6;' : '';
+    const value  = isIP
+        ? (active ? `<div style="font-size:0.8em;color:#c66900;">${formatIPFilter(ipFilters[c.id])}</div>`:'')
+        : (filters[c.id] ? `<div style="font-size:0.8em;color:#c66900;">${filters[c.id]}</div>`:'');
+    html += `<th style="${bg}">${c.label}<br>
+               <button onclick="setFilter('${c.id}')">🔎</button>${value}
+             </th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  // -------- filas -----------
+  Object.entries(currentRulesetData)
+    .sort((a,b)=>parseInt(a[0]) - parseInt(b[0]))
+    .forEach(([id,r])=>{
+      // filtrar por IP
+      if (ipFilters.source      && !matchIP(r.source,      ipFilters.source))      return;
+      if (ipFilters.destination && !matchIP(r.destination, ipFilters.destination)) return;
+
+      const row = {
+        rule_id:     id,
+        source:      entityText(r.source,'address','network'),
+        src_port:    portText(r.source),
+        destination: entityText(r.destination,'address','network'),
+        dst_port:    portText(r.destination),
+        protocol:    r.protocol||'-',
+        action:      r.action,
+        description: r.description||'-'
+      };
+      // filtros textuales
+      for (let k in filters) if (!row[k].includes(filters[k])) return;
+
+      html += `<tr id="row-${id}">
+        <td>${row.rule_id}</td>
+        <td>${cellHTML(r.source,'address','network')}</td>
+        <td>${cellHTML(r.source,'port')}</td>
+        <td>${cellHTML(r.destination,'address','network')}</td>
+        <td>${cellHTML(r.destination,'port')}</td>
+        <td>${row.protocol}</td>
+        <td>${row.action}</td>
+        <td>${row.description}</td>
+      </tr>`;
+    });
+
+  html += `</tbody></table>`;
+  content.innerHTML = html;
+
+  document.getElementById('toggleBtn').onclick = ()=>{ showResolved=!showResolved; renderRuleset(); };
+  document.getElementById('searchBtn').onclick = openSearchModal;
+}
+
+// ========= FILTROS DE CABECERA =========
+function setFilter(field){
+  const defaultVal = (field==='source'||field==='destination') ? '' : (filters[field]||'');
+  const val = prompt(`Filtrar ${field} por (vacío = limpiar):`, defaultVal) || '';
+
+  if (field==='source'||field==='destination'){
+    // eliminar posible filtro textual obsoleto
+    delete filters[field];
+    ipFilters[field] = val ? parseIPInput(val) : null;
+  } else {
+    if (val) filters[field] = val;
+    else delete filters[field];
+  }
+  renderRuleset();
+}
+
+// ========= UTILIDADES DE IP =========
+function parseIPInput(v){
+  let [ip,mask] = v.split('/');
+  mask = mask ? parseInt(mask) : 32;
+  const [net,mlen] = parseCIDR(`${ip}/${mask}`);
+  return { ip: ipToInt(ip), net, mask: mlen };
+}
+
+function formatIPFilter(info){
+  if (!info) return '';
+  const o1=(info.ip>>>24)&255, o2=(info.ip>>>16)&255, o3=(info.ip>>>8)&255, o4=info.ip&255;
+  return `${o1}.${o2}.${o3}.${o4}/${info.mask}`;
+}
+
+// ========= TEXTO Y CELDAS =========
+function entityText(obj, aKey, nKey){
+  if(!obj) return '-';
+  if(obj.group){
+    const type=obj.group['address-group']?aKey:nKey;
+    const name=obj.group[`${type}-group`];
+    return showResolved
+      ? (Array.isArray(groupCache[`${type}-${name}`])?groupCache[`${type}-${name}`].join(', '):groupCache[`${type}-${name}`])
+      : name;
+  }
+  return obj.address||'-';
+}
+function portText(obj){
+  if(!obj) return '-';
+  if(obj.group && obj.group['port-group']){
+    const n=obj.group['port-group'];
+    return showResolved
+      ? (Array.isArray(groupCache[`port-${n}`])?groupCache[`port-${n}`].join(', '):groupCache[`port-${n}`])
+      : n;
+  }
+  if(obj.port) return Array.isArray(obj.port)?obj.port.join(', '):String(obj.port);
+  return '-';
+}
+function cellHTML(obj,aKey,nKey){
+  if(!obj) return '-';
+  // address/network
+  if(arguments.length===3){
+    if(obj.group){
+      const type=obj.group['address-group']?aKey:nKey, name=obj.group[`${type}-group`];
+      return showResolved
+        ? entityText(obj,aKey,nKey)
+        : `<a href="#" onclick="showGroup('${type}','${name}');return false;">${name}</a>`;
+    }
+    return obj.address||'-';
+  }
+  // port
+  if(obj.group && obj.group['port-group']){
+    const name=obj.group['port-group'];
+    return showResolved
+      ? portText(obj)
+      : `<a href="#" onclick="showGroup('port','${name}');return false;">${name}</a>`;
+  }
+  if(obj.port) return portText(obj);
+  return '-';
+}
+
+// ========= BUSCADOR DE TRÁFICO (sin cambios) =========
+function openSearchModal(){
+  const html = `
+    <div class="modal">
+      <div class="modal-content">
+        <h3>Buscar tráfico</h3>
+        <label>Source IP: <input id="s_ip" placeholder="10.0.0.5/32 or 10.0.0.0/24" /></label><br />
+        <label>Source Port: <input id="s_port" placeholder="e.g. 80" /></label><br />
+        <label>Destination IP: <input id="d_ip" placeholder="10.0.0.10/32" /></label><br />
+        <label>Destination Port: <input id="d_port" placeholder="e.g. 443" /></label><br />
+        <label>Protocol: <input id="proto" placeholder="tcp, udp, icmp" /></label><br /><br />
+        <button id="execSearch">Buscar</button>
+        <button onclick="closeModal()">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+  document.getElementById('execSearch').onclick = executeSearch;
+}
+function closeModal(){ document.querySelector('.modal')?.remove(); }
+// Ejecutar búsqueda
+function executeSearch(){
+  const sip   = document.getElementById('s_ip').value.trim()   || 'any';
+  const dip   = document.getElementById('d_ip').value.trim()   || 'any';
+  const sp    = document.getElementById('s_port').value.trim() || 'any';
+  const dp    = document.getElementById('d_port').value.trim() || 'any';
+  let proto   = document.getElementById('proto').value.trim().toLowerCase() || 'any';
+  if (!['any','tcp','udp','icmp'].includes(proto)) proto = 'any';
+  closeModal();
+  const matchId = findMatchingRule({srcIP:sip, dstIP:dip, srcPort:sp, dstPort:dp, protocol:proto});
+  const resDiv  = document.getElementById('searchResult');
+  if (!matchId) {
+    resDiv.textContent = 'No hay regla que haga match.';
+    return;
+  }
+  resDiv.innerHTML = `Coincide regla <b>${matchId}</b> <button onclick="gotoRule('${matchId}')">Go to</button>`;
+}
+
+function gotoRule(id) {
+    document.querySelectorAll('tr').forEach(r => r.classList.remove('highlight'));
+    const row = document.getElementById(`row-${id}`);
+    if (row) {
+        row.classList.add('highlight');
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+
+// ========= MATCHERS (sin cambios salvo matchPort actualizado) =========
+function findMatchingRule(c) {
+    const s = parseIPInput(c.srcIP);
+    const d = parseIPInput(c.dstIP);
+    for (const [id, r] of Object.entries(currentRulesetData).sort((a, b) => a[0] - b[0])) {
+        if (matchRule(r, s, d, c.srcPort, c.dstPort, c.protocol)) {
+            return id;
+        }
+    }
+    return null;
+}
+/* ---------- regla completa ---------- */
+function matchRule(r, sip, dip, sp, dp, pr){
+  return matchIP(r.source,      sip) &&
+         matchIP(r.destination, dip) &&
+         matchPort(r.source,    sp)  &&
+         matchPort(r.destination,dp) &&
+         matchProtocol(r.protocol, pr);
+}
+
+function matchIP(obj, info){
+  if (!info || !obj) return true;            // sin filtro o sin dato
+
+  /* construir la lista de “specs” ------------------------------ */
+  const specs = [];
+  if (obj.group){
+    if (obj.group['address-group'])
+      specs.push(...wrap(groupCache[`address-${obj.group['address-group']}`]));
+    if (obj.group['network-group'])
+      specs.push(...wrap(groupCache[`network-${obj.group['network-group']}`]));
+  } else if (obj.address){
+    specs.push(...wrap(obj.address));        // <- ahora aplanado
+  }
+
+  if (!specs.length) return true;            // sin restricción => match
+
+  /* comprobar -------------------------------------------------- */
+  return specs.some(s => ipInSpec(info.ip, s));
+}
+/* ---------- ayuda genérica ---------- */
+function wrap(x){ return Array.isArray(x) ? x : [x]; }
+
+/* ---------- IP utils ---------- */
+
+function parseCIDR(c){
+  const [ip, maskStr] = c.split('/');
+  const mask          = parseInt(maskStr);
+  const ipn           = ipToInt(ip);
+  const maskBits      = mask === 0 ? 0 : (~((1<<(32-mask))-1) >>> 0);
+  return [ipn & maskBits, mask];
+}
+
+
+function ipToInt(ip){
+  return ip.split('.').reduce((a,b) => a*256 + parseInt(b), 0);
+}
+
+
+function ipInSpec(ipn, spec){
+  /* lista separada por comas ---------------------------------- */
+  //spec = String(spec).trim();
+  if (spec.includes(',')){
+    return spec.split(',').some(s => ipInSpec(ipn, s.trim()));
+  }
+  /* formato CIDR ---------------------------------------------- */
+  if (spec.includes('/')){
+    const [net, mask] = parseCIDR(spec);
+    const maskBits    = mask === 0 ? 0 : (~((1<<(32-mask))-1) >>> 0);
+    return (ipn & maskBits) === net;
+  }
+  /* rango a-b -------------------------------------------------- */
+  if (spec.includes('-')){
+    const [a,b] = spec.split('-').map(ipToInt);
+    return ipn >= a && ipn <= b;
+  }
+  /* host único ------------------------------------------------- */
+  return ipn === ipToInt(spec);
+}
+
+/* ---------- PUERTO utils ---------- */
+function portInSpec(pin, spec){
+  /* lista “80,443,8080” --------------------------------------- */
+ // spec = String(spec).trim();
+  spec = String(spec).trim();
+  if (spec.includes(',')){
+    return spec.split(',').some(p => portInSpec(pin, p.trim()));
+  }
+  /* rango “2000-3000” ----------------------------------------- */
+  if (spec.includes('-')){
+    const [a,b] = spec.split('-').map(Number);
+    return pin >= a && pin <= b;
+  }
+  /* puerto único ---------------------------------------------- */
+  return pin === Number(spec);
+}
+
+function matchPort(obj, portIn){
+  // 1) “any” casa con TODO
+  if (portIn === 'any') return true;
+
+  // 2) la regla no tiene ni source ni destination => no está limitando
+  if (!obj) return false;
+
+  // 3) ya podemos parsear
+  const pin   = parseInt(portIn, 10);
+  let   specs = [];
+
+  // 4) cargar specs de port‑group o puerto suelto
+  if (obj.group && obj.group['port-group']) {
+    specs.push(...wrap(groupCache[`port-${obj.group['port-group']}`] || []));
+  }
+  else if (obj.port) {
+    specs.push(...wrap(obj.port));
+  }
+
+  // 5) sin specs = sin puerto definido ⇒ no match
+  if (!specs.length) return false;
+
+  // 6) probar cada spec
+  return specs.some(s => portInSpec(pin, s));
+}
+
+/* ---------- PROTOCOLO ---------- */
+function matchProtocol(ruleProto, searchProto){
+  if (!searchProto || searchProto === 'any') return true;
+  if (!ruleProto   || ruleProto   === 'any' || ruleProto === 'all') return true;
+
+  const rp = ruleProto.toLowerCase();
+  const sp = searchProto.toLowerCase();
+
+  /* reglas con tcp_udp ---------------------------------------- */
+  if (rp.includes('_')){
+    return rp.split('_').includes(sp);
+  }
+  return rp === sp;
+}
+
+// ========= MODAL DE GRUPOS =========
+async function showGroup(type, name) {
+    const res = await fetch(`/api/firewall/group/${type}/${name}`);
+    const grp = await res.json();
+
+    let list;
+    if (type === 'address') list = grp.address;
+    if (type === 'network') list = grp.network;
+    if (type === 'port') list = grp.port;
+
+    const items = Array.isArray(list) ? list : [list];
+    const html = `
+        <div class="modal">
+            <div class="modal-content">
+                <h3>${name}</h3>
+                <ul>
+                    ${items.map(i => `<li>${i}</li>`).join('')}
+                </ul>
+                <button onclick="closeModal()">Cerrar</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeModal() {
+    document.querySelector('.modal')?.remove();
+}
+

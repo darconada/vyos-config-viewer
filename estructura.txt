@@ -1,0 +1,9 @@
+vyos-config-viewer/
+├── app.py
+├── requirements.txt
+├── templates/
+│   └── index.html
+└── static/
+    ├── app.js        
+    └── modal.css
+
