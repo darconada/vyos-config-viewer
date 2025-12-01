@@ -4,8 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="VyOS Configuration Viewer - Visual interface for VyOS router configurations">
   <title>VyOS Config Viewer</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/modal.css">
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,50 +18,191 @@
 </head>
 
 <body>
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
+  <!-- Header -->
   <header class="app-header">
-    <div class="logo">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-        <line x1="8" y1="21" x2="16" y2="21"></line>
-        <line x1="12" y1="17" x2="12" y2="21"></line>
-      </svg>
-      VyOS Viewer
+    <div class="header-left">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
+        </div>
+        <span class="logo-text">VyOS Viewer</span>
+      </div>
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb">
+        <span class="breadcrumb-item">Home</span>
+      </nav>
+    </div>
+
+    <div class="header-center">
+      <!-- Connection Status -->
+      <div class="connection-status" id="connectionStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">No config loaded</span>
+      </div>
     </div>
 
     <div class="header-controls">
-      <select id="themeSelect" aria-label="Select Theme">
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-        <option value="retro">Retro</option>
-      </select>
-      <button id="fetchBtn" class="primary">
+      <!-- Theme Toggle -->
+      <div class="theme-toggle" role="group" aria-label="Theme selection">
+        <button class="theme-btn" data-theme="light" title="Light theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+        <button class="theme-btn" data-theme="dark" title="Dark theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button class="theme-btn" data-theme="retro" title="Retro theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Action Buttons -->
+      <button id="fetchBtn" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.5rem">
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"></path>
+          <path d="M12 5l7 7-7 7"></path>
+        </svg>
+        <span>Connect</span>
+      </button>
+      <button id="uploadBtn" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="17 8 12 3 7 8"></polyline>
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
-        Connect
-      </button>
-      <button id="uploadBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.5rem">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7 10 12 15 17 10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-        Upload JSON
+        <span>Upload</span>
       </button>
       <input type="file" id="fileInput" accept="application/json" style="display:none">
     </div>
   </header>
 
+  <!-- Main Content -->
   <main class="main-container">
-    <nav id="menu" class="card flex gap-2" style="padding: 1rem; overflow-x: auto;"></nav>
-    <div id="content"></div>
+    <!-- Navigation Menu -->
+    <nav id="menu" class="nav-menu" aria-label="Main navigation"></nav>
+
+    <!-- Content Area -->
+    <div id="content" class="content-area">
+      <!-- Welcome State -->
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
+        </div>
+        <h2 class="empty-state-title">Welcome to VyOS Config Viewer</h2>
+        <p class="empty-state-text">Connect to a VyOS router via SSH or upload a JSON configuration file to get started.</p>
+        <div class="empty-state-actions">
+          <button class="btn btn-primary btn-lg" onclick="document.getElementById('fetchBtn').click()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
+            Connect via SSH
+          </button>
+          <button class="btn btn-secondary btn-lg" onclick="document.getElementById('fileInput').click()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload JSON File
+          </button>
+        </div>
+      </div>
+    </div>
   </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span class="footer-text">VyOS Config Viewer</span>
+      <span class="footer-separator">|</span>
+      <span class="footer-hint">Press <kbd>?</kbd> for keyboard shortcuts</span>
+    </div>
+  </footer>
+
+  <!-- Keyboard Shortcuts Modal (hidden by default) -->
+  <div id="shortcutsModal" class="modal hidden" role="dialog" aria-labelledby="shortcutsTitle" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3 id="shortcutsTitle">Keyboard Shortcuts</h3>
+        <button class="modal-close" onclick="closeModal('shortcutsModal')" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <kbd>?</kbd>
+            <span>Show this help</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Esc</kbd>
+            <span>Close modal / Clear search</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>c</kbd>
+            <span>Connect to router</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>u</kbd>
+            <span>Upload config file</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>f</kbd>
+            <span>Go to Firewall</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>n</kbd>
+            <span>Go to NAT</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>s</kbd>
+            <span>Search traffic (in Firewall view)</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>r</kbd>
+            <span>Toggle resolved values</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>
