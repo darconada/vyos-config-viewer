@@ -681,6 +681,40 @@ function ipInSpec(ipn, spec) {
   return ipn === ipToInt(spec);
 }
 
+// Nueva función: Verifica si una especificación de regla se solapa con un filtro CIDR
+function specOverlapsFilter(spec, filterInfo) {
+  // Si spec es una lista, verificar si algún elemento se solapa
+  if (spec.includes(',')) {
+    return spec.split(',').some(s => specOverlapsFilter(s.trim(), filterInfo));
+  }
+
+  // Calcular el rango del filtro [filterStart, filterEnd]
+  const filterStart = filterInfo.net;
+  const filterSize = filterInfo.mask === 32 ? 1 : (1 << (32 - filterInfo.mask));
+  const filterEnd = filterStart + filterSize - 1;
+
+  // Si spec es un CIDR
+  if (spec.includes('/')) {
+    const [net, mask] = parseCIDR(spec);
+    const specSize = mask === 32 ? 1 : (1 << (32 - mask));
+    const specStart = net;
+    const specEnd = specStart + specSize - 1;
+
+    // Verificar si los rangos se solapan
+    return specStart <= filterEnd && specEnd >= filterStart;
+  }
+
+  // Si spec es un rango (a-b)
+  if (spec.includes('-')) {
+    const [a, b] = spec.split('-').map(ipToInt);
+    return a <= filterEnd && b >= filterStart;
+  }
+
+  // Si spec es una IP simple, verificar si está dentro del rango del filtro
+  const ipn = ipToInt(spec);
+  return ipn >= filterStart && ipn <= filterEnd;
+}
+
 // =========================================
 // TEXT AND CELL RENDERING
 // =========================================
@@ -905,7 +939,7 @@ function matchIP(obj, info) {
       const neg = name.startsWith('!');
       if (neg) name = name.slice(1);
       const list = wrap(groupCache[`address-${name}`]);
-      const hit = list.some(spec => ipInSpec(info.ip, spec));
+      const hit = list.some(spec => specOverlapsFilter(spec, info));
       return neg ? !hit : hit;
     }
     if (obj.group['network-group']) {
@@ -913,13 +947,13 @@ function matchIP(obj, info) {
       const neg = name.startsWith('!');
       if (neg) name = name.slice(1);
       const list = wrap(groupCache[`network-${name}`]);
-      const hit = list.some(spec => ipInSpec(info.ip, spec));
+      const hit = list.some(spec => specOverlapsFilter(spec, info));
       return neg ? !hit : hit;
     }
   }
 
   if (obj.address) {
-    return ipInSpec(info.ip, obj.address);
+    return specOverlapsFilter(obj.address, info);
   }
 
   return true;
